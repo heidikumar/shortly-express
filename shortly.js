@@ -25,6 +25,7 @@ app.use(express.static(__dirname + '/public'));
 
 app.get('/', 
 function(req, res) {
+  //TODO : Check if logged in. Go to index if logged in!!!!
   res.render('index');
 });
 
@@ -76,7 +77,57 @@ function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
+app.get('/login', function(req, res){
+  //todo: render login page
+  res.render('login');
 
+  console.log("before new user creation");
+  
+
+
+});
+
+app.post('/login', function(req, res){
+
+
+});
+
+
+
+
+app.get('/signup', function(req, res){
+  //todo: render signup page
+  res.render('signup');
+
+});
+
+app.post('/signup', function(req, res){
+  //todo: receive&process signup data
+
+  //todo: redirect (or other way to tell user that they signed up successfully)
+
+  //make a function to check if the username is valid 
+    //if not, give alert
+  //then
+  new User({username: req.body.username}).fetch().then(function(found){
+    if (found){
+      //TODO send "this user is taken, try again" message
+      res.send(200);
+    } else {
+      // console.log("attempting to add new user");
+      Users.create({
+        username: req.body.username,
+        password: req.body.password
+        //will need a function for salt
+      }).then(function(){
+        console.log("Created new user!");
+        //TODO redirect them to loggin page
+        res.redirect(302, '/login');
+      });
+    }
+  });
+
+});
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
