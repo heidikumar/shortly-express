@@ -89,6 +89,15 @@ app.get('/login', function(req, res){
 
 app.post('/login', function(req, res){
 
+  new User({username: req.body.username}).fetch().then(function(found){
+    if (found){
+      //check database to login. 
+      //if everything matches, we redirect
+        res.redirect(302, '/');
+    } else {
+        res.redirect(302, '/signup');
+    }
+  });
 
 });
 
@@ -122,7 +131,7 @@ app.post('/signup', function(req, res){
       }).then(function(){
         console.log("Created new user!");
         //TODO redirect them to loggin page
-        res.redirect(302, '/login');
+        res.redirect(302, '/');
       });
     }
   });
