@@ -2,6 +2,8 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
+var session = require('express-session');
+var bcrypt = require('bcrypt');
 
 
 var db = require('./app/config');
@@ -10,6 +12,7 @@ var User = require('./app/models/user');
 var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
+var authenticate = require('./lib/authenticate.js');
 
 var app = express();
 
@@ -21,20 +24,55 @@ app.use(bodyParser.json());
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
+app.use(session({
+  resave: false,
+  saveUninitialized: false,
+  secret: 'HeyBuddyWannaBuyATile'
+}));
+
+app.use(function(req, res, next){
+  var err = req.session.error;
+  var msg = req.session.success;
+  delete req.session.error;
+  delete req.session.success;
+  res.locals.message = '';
+  if (err) res.locals.message = '<p class="msg error">' + err + '</p>';
+  if (msg) res.locals.message = '<p class="msg success">' + msg + '</p>';
+  next();
+});
+
+var restrict = function(req, res, next){
+  if (req.session.user){
+    next();
+  } else {
+    req.session.error = "Access denied, bro! Mwahaha!";
+    res.send("Access denied, bro! Mwahaha! Try <a href='/login'>Again</a>?");
+  }
+};
 
 
-app.get('/', 
-function(req, res) {
+app.get('/', restrict, function(req, res) {
   //TODO : Check if logged in. Go to index if logged in!!!!
   res.render('index');
 });
 
-app.get('/create', 
-function(req, res) {
+app.get('/logout', function(req, res){
+  req.session.destroy(function(){
+    res.redirect('/login');
+  });
+});
+
+app.post('/logout', function(req, res){
+  req.session.destroy(function(){
+    res.redirect('/login');
+  });
+});
+
+app.get('/create', restrict, function(req, res) {
   res.render('index');
 });
 
-app.get('/links', 
+app.get('/links',  //TO DO: restrict? NOTSUREWHAT TO DO WITHTHIS
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
@@ -81,23 +119,33 @@ app.get('/login', function(req, res){
   //todo: render login page
   res.render('login');
 
-  console.log("before new user creation");
-  
-
-
 });
 
 app.post('/login', function(req, res){
-
-  new User({username: req.body.username}).fetch().then(function(found){
-    if (found){
-      //check database to login. 
-      //if everything matches, we redirect
-        res.redirect(302, '/');
+  authenticate(req.body.username, req.body.password, function(err, user){
+    if(user){
+      req.session.regenerate(function(){
+        req.session.user = user;
+        req.session.success = 'You are awesome!';
+        res.redirect('/');
+      });
     } else {
-        res.redirect(302, '/signup');
+      req.session.error = 'You have failed at authentication';
+      // res.redirect('/login');
+      res.send('Sorry, bud, no such user/pass combo. Try <a href="/login">Login</a> again?');
     }
   });
+
+
+  // new User({username: req.body.username}).fetch().then(function(found){
+  //   if (found){
+  //     //check database to login. 
+  //     //if everything matches, we redirect
+  //       res.redirect(302, '/');
+  //   } else {
+  //       res.redirect(302, '/signup');
+  //   }
+  // });
 
 });
 
@@ -107,7 +155,7 @@ app.post('/login', function(req, res){
 app.get('/signup', function(req, res){
   //todo: render signup page
   res.render('signup');
-
+  // res.redirect('/login');
 });
 
 app.post('/signup', function(req, res){
@@ -117,22 +165,28 @@ app.post('/signup', function(req, res){
 
   //make a function to check if the username is valid 
     //if not, give alert
+
   //then
   new User({username: req.body.username}).fetch().then(function(found){
     if (found){
       //TODO send "this user is taken, try again" message
       res.send(200);
     } else {
-      // console.log("attempting to add new user");
-      Users.create({
-        username: req.body.username,
-        password: req.body.password
-        //will need a function for salt
-      }).then(function(){
-        console.log("Created new user!");
-        //TODO redirect them to loggin page
-        res.redirect(302, '/');
+      bcrypt.genSalt(10, function(err,salt){
+        bcrypt.hash(req.body.password, salt, function(err, hash){
+          Users.create({
+            username: req.body.username,
+            password: hash, 
+            salt: salt
+            //will need a function for salt
+          }).then(function(){
+            console.log("Created new user!");
+            //TODO redirect them to loggin page
+            res.redirect(302, '/login');
+          });
+        });
       });
+      // console.log("attempting to add new user");
     }
   });
 
