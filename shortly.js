@@ -46,7 +46,8 @@ var restrict = function(req, res, next){
     next();
   } else {
     req.session.error = "Access denied, bro! Mwahaha!";
-    res.send("Access denied, bro! Mwahaha! Try <a href='/login'>Again</a>?");
+    res.redirect('/login');
+    // res.send("Access denied, bro! Mwahaha! Try <a href='/login'>Again</a>?");
   }
 };
 
@@ -72,14 +73,14 @@ app.get('/create', restrict, function(req, res) {
   res.render('index');
 });
 
-app.get('/links',  //TO DO: restrict? NOTSUREWHAT TO DO WITHTHIS
+app.get('/links', restrict,  //TO DO: restrict? NOTSUREWHAT TO DO WITHTHIS
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-app.post('/links', 
+app.post('/links', restrict,
 function(req, res) {
   var uri = req.body.url;
 
@@ -179,10 +180,16 @@ app.post('/signup', function(req, res){
             password: hash, 
             salt: salt
             //will need a function for salt
-          }).then(function(){
+          }).then(function(user){
             console.log("Created new user!");
             //TODO redirect them to loggin page
-            res.redirect(302, '/login');
+            req.session.regenerate(function(){
+              req.session.user = user;
+              req.session.success = 'You are awesome!';
+              res.redirect('/');
+            });
+
+            // res.redirect(302, '/login');
           });
         });
       });
